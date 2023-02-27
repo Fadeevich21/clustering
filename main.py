@@ -5,7 +5,7 @@ from src.k_means_multi_threaded import KMeansMultiThreaded
 from src.visualisation import visualisation_3d
 
 PATH = "input"
-FILENAME = "iris.csv"
+FILENAME = "Country-data.csv"
 K = 3
 
 
@@ -13,7 +13,7 @@ def get_data(path: str, filename: str) -> pd.DataFrame:
     filepath = path + '/' + filename
     data = pd.read_csv(filepath)
     data_copy = data.copy(True)
-    data_copy.drop(columns=["species"], axis=1, inplace=True)
+    data_copy.drop(columns=["country"], axis=1, inplace=True)
 
     return data_copy
 

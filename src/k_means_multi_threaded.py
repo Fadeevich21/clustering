@@ -177,7 +177,7 @@ class KMeansMultiThreaded(KMeans, ABC):
         with open(self.__nmeans_filename, 'r') as nmeans_file:
             for line in nmeans_file:
                 arr = line.split(',')
-                clusters[int(arr[1])] = [0, [0, 0, 0, 0]]
+                clusters[int(arr[1])] = [0, [0] * dimension]
 
         with open(self.__nmeans_filename, 'r') as nmeans_file:
             for line in nmeans_file:
