@@ -1,3 +1,5 @@
+import math
+
 import pandas as pd
 import threading
 from threading import Thread
@@ -16,6 +18,7 @@ class KMeansMultiThreaded(KMeans, ABC):
     __centers_filename = "tmp/centers.csv"
     __nclusters_filename = "tmp/nclusters.csv"
     __nmeans_filename = "tmp/nmeans.csv"
+    __k = 0
 
     __number_threads = 2
     __number_using_thread = 0
@@ -25,6 +28,7 @@ class KMeansMultiThreaded(KMeans, ABC):
         super().__init__()
 
     def execute(self, data: pd.DataFrame, k: int):
+        self.__k = k
         self.__clear_area_file()
         self.set_dimension(len(data.iloc[0, :]))
         self._fill_area(data)
@@ -33,9 +37,8 @@ class KMeansMultiThreaded(KMeans, ABC):
         while 1:
             self.__clear_nclusters_file()
             self.__clear_nmeans_file()
-            self._dots_distribution_multi_thread(dots)
-            # if self._centers_is_equals(cluster_centers_prepared):
-            break
+            if self._dots_distribution_multi_thread(dots):
+                break
 
     def __fill_area_multi_thread(self, data, number_thread) -> None:
         self.__number_using_thread += 1
@@ -68,7 +71,8 @@ class KMeansMultiThreaded(KMeans, ABC):
     def __clear_area_file(self):
         self.__clear_file(self.__area_filename)
 
-    def __clear_file(self, filename):
+    @staticmethod
+    def __clear_file(filename):
         file = open(filename, 'w')
         file.close()
 
@@ -88,15 +92,23 @@ class KMeansMultiThreaded(KMeans, ABC):
             area_writer = csv.writer(area_file)
             area_writer.writerow(arr)
 
-    def _fill_cluster_centers(self, number_cluster_centers: int) -> None:
+    def _write_cluster_centers(self, cluster_centers):
         with open(self.__centers_filename, 'w') as centers_file:
+            number_cluster_centers = len(cluster_centers)
             centers_writer = csv.writer(centers_file)
             for i in range(number_cluster_centers):
                 arr = [i + 1]
-                cluster_center = self._get_cluster_center_multi_thread()
+                cluster_center = cluster_centers[i]
                 for j in range(len(cluster_center)):
                     arr.append(cluster_center.get_value(j))
                 centers_writer.writerow(arr)
+
+    def _fill_cluster_centers(self, number_cluster_centers: int) -> None:
+        cluster_centers = []
+        for i in range(number_cluster_centers):
+            cluster_center = self._get_cluster_center_multi_thread()
+            cluster_centers.append(cluster_center)
+        self._write_cluster_centers(cluster_centers)
 
     @staticmethod
     def __get_key(d, value):
@@ -139,14 +151,14 @@ class KMeansMultiThreaded(KMeans, ABC):
                     if len(dots_cluster) == 0:
                         continue
 
-                    num = sum([dot_cluster.get_value(i) for dot_cluster in dots_cluster]) / len(dots_cluster)
+                    num = sum([dot_cluster.get_value(i) for dot_cluster in dots_cluster])
                     arr.append(num)
                 with self.__csv_writer_lock:
                     nmeans_writer.writerow(arr)
 
         self.__number_using_thread -= 1
 
-    def _dots_distribution_multi_thread(self, dots) -> None:
+    def _dots_distribution_multi_thread(self, dots) -> bool:
         step = len(dots) // self.__number_threads
         for i in range(self.__number_threads):
             if i + 1 == self.__number_threads:
@@ -157,9 +169,38 @@ class KMeansMultiThreaded(KMeans, ABC):
             th.start()
 
         self.__wait_end_work_threads()
-        self.__prepare_area_file()
 
 
+        clusters = {}
+        dimension = self.get_dimension()
+        cluster_centers: list[Dot] = []
+        with open(self.__nmeans_filename, 'r') as nmeans_file:
+            for line in nmeans_file:
+                arr = line.split(',')
+                clusters[int(arr[1])] = [0, [0, 0, 0, 0]]
+
+        with open(self.__nmeans_filename, 'r') as nmeans_file:
+            for line in nmeans_file:
+                arr = line.split(',')
+                arr[-1] = arr[-1][:-1]
+                if int(arr[2]) == 0:
+                    continue
+                clusters[int(arr[1])][0] += int(arr[2])
+                for j in range(dimension):
+                    clusters[int(arr[1])][1][j] += float(arr[j+3])
+
+        for number_cluster, info in clusters.items():
+            cluster_center = Dot(dimension)
+            for i in range(dimension):
+                if info[0] == 0:
+                    continue
+                value = info[1][i] / info[0]
+                cluster_center.set_value(i, value)
+            cluster_centers.append(cluster_center)
+
+        cluster_centers_from_file = list(self._get_cluster_centers_from_file().values())
+        self._write_cluster_centers(cluster_centers)
+        return self._centers_is_equals(cluster_centers, cluster_centers_from_file)
 
     def _get_cluster_centers(self):
         pass
