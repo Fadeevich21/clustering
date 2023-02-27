@@ -46,7 +46,7 @@ class KMeans(ClusteringAlgorithm):
         return cluster_center
 
     def _get_number_ranges(self) -> int:
-        return len(self._area)
+        return self.__dimension
 
     @staticmethod
     def _get_random_value_in_range(range_) -> int | float:
