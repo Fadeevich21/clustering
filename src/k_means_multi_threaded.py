@@ -198,6 +198,25 @@ class KMeansMultiThreaded(KMeans, ABC):
                 cluster_center.set_value(i, value)
             cluster_centers.append(cluster_center)
 
+        clusters: dict[int, str] = {}
+        with open(self.__nclusters_filename, 'r') as nclusters_file:
+            for line in nclusters_file:
+                arr = line.split(',')
+                clusters[int(arr[1])] = ""
+
+        with open(self.__nclusters_filename, 'r') as nclusters_file:
+            for line in nclusters_file:
+                arr = line.split(',')
+                arr[-1] = arr[-1][:-1]
+                if len(arr) <= 2:
+                    continue
+                clusters[int(arr[1])] += ','.join(arr[2:])
+
+        with open(self.__nclusters_filename, 'w') as nclusters_file:
+            for number_cluster, string in clusters.items():
+                data = f"0,{number_cluster},{string}\n"
+                nclusters_file.writelines(data)
+
         cluster_centers_from_file = list(self._get_cluster_centers_from_file().values())
         self._write_cluster_centers(cluster_centers)
         return self._centers_is_equals(cluster_centers, cluster_centers_from_file)
