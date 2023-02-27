@@ -15,6 +15,7 @@ class KMeansMultiThreaded(KMeans, ABC):
     __area_filename = "tmp/area.csv"
     __centers_filename = "tmp/centers.csv"
     __nclusters_filename = "tmp/nclusters.csv"
+    __nmeans_filename = "tmp/nmeans.csv"
 
     __number_threads = 2
     __number_using_thread = 0
@@ -30,11 +31,11 @@ class KMeansMultiThreaded(KMeans, ABC):
         dots = self._get_dots(data)
         self._fill_cluster_centers(k)
         while 1:
-            self.__clear_dots_distribution_file()
+            self.__clear_nclusters_file()
+            self.__clear_nmeans_file()
             self._dots_distribution_multi_thread(dots)
-            cluster_centers_prepared = self._prepare_cluster_centers()
-            if self._centers_is_equals(cluster_centers_prepared):
-                break
+            # if self._centers_is_equals(cluster_centers_prepared):
+            break
 
     def __fill_area_multi_thread(self, data, number_thread) -> None:
         self.__number_using_thread += 1
@@ -117,8 +118,8 @@ class KMeansMultiThreaded(KMeans, ABC):
             cluster_content[cluster_center].append(dot)
 
         with open(self.__nclusters_filename, 'a') as nclusters_file:
-            dimension = self.get_dimension()
             nclusters_writer = csv.writer(nclusters_file)
+            dimension = self.get_dimension()
             for cluster_center, dots_cluster in cluster_content.items():
                 number_cluster = self.__get_key(cluster_centers_map, cluster_center)
                 arr = [number_thread, number_cluster]
@@ -128,6 +129,20 @@ class KMeansMultiThreaded(KMeans, ABC):
 
                 with self.__csv_writer_lock:
                     nclusters_writer.writerow(arr)
+
+        with open(self.__nmeans_filename, 'a') as nmeans_file:
+            nmeans_writer = csv.writer(nmeans_file)
+            for cluster_center, dots_cluster in cluster_content.items():
+                number_cluster = self.__get_key(cluster_centers_map, cluster_center)
+                arr = [number_thread, number_cluster, len(dots_cluster)]
+                for i in range(dimension):
+                    if len(dots_cluster) == 0:
+                        continue
+
+                    num = sum([dot_cluster.get_value(i) for dot_cluster in dots_cluster]) / len(dots_cluster)
+                    arr.append(num)
+                with self.__csv_writer_lock:
+                    nmeans_writer.writerow(arr)
 
         self.__number_using_thread -= 1
 
@@ -183,5 +198,8 @@ class KMeansMultiThreaded(KMeans, ABC):
 
         return range_
 
-    def __clear_dots_distribution_file(self):
+    def __clear_nclusters_file(self):
         self.__clear_file(self.__nclusters_filename)
+
+    def __clear_nmeans_file(self):
+        self.__clear_file(self.__nmeans_filename)
